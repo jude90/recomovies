@@ -19,13 +19,20 @@ object AlsCF {
 
   def main (args: Array[String]){
 
-    val ratings: RDD[Rating] = sc.textFile("sample_movielens_ratings.txt").map{
+    val ratings: RDD[Rating] = sc.textFile("data/ml/r1.train").map{
       _.split("::") match {
         case Array(uid,mid,rate,timestamp) =>
           Rating(uid.toInt, mid.toInt, rate.toDouble)
       }
 
     }
+    val top100 = ratings.map{ case Rating(u,m, r) =>
+        (m,r)
+    }.groupByKey.mapValues{ case  r =>
+      val rates = r.toArray
+        r.reduce(_+_) / rates.length
+    }.sortBy({case (k,v) => v}, ascending = false).take(100)
+
     val Array(train , test) = ratings.randomSplit(Array(0.7,0.3), 17)
 //    train.take(10)
 //    test.take(10)
@@ -53,7 +60,8 @@ object AlsCF {
     }.mean()
 
     println(s"RMSE is ", RMSE)
-
+    println("Top 100 is")
+    top100.foreach(println)
     sc.stop()
   }
 
