@@ -53,14 +53,12 @@ object ItemCF {
 
     // tranform to pair RDD wich key is item and value is vector of similarities with other item
     val indexdsimilar = similar.toIndexedRowMatrix()
-
-    indexdsimilar.rows.foreach{row =>
-      println(row.index)
+      .rows.map{ case IndexedRow(idx, vector) =>
+      (idx.toInt, vector)
     }
 
-        .rows.map{ case IndexedRow(idx, vector) =>
-        (idx.toInt, vector)
-      }
+
+
   // sample a user
     val user2pred = mat.rows.takeSample(true,1)(0)
     println(user2pred.index)
