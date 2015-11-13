@@ -6,7 +6,7 @@ package my.cf
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.linalg.{SparseVector, Vectors}
-import org.apache.spark.mllib.linalg.distributed.{RowMatrix, IndexedRowMatrix, IndexedRow}
+import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, RowMatrix, IndexedRowMatrix, IndexedRow}
 
 object ItemCF {
   def main(args: Array[String]): Unit = {
@@ -44,56 +44,55 @@ object ItemCF {
       }
 
     // index RowMat which idx is a user and vector is items of the user
-    val mat  = new IndexedRowMatrix(rows)
-
-
-//    compute similarity across columns
-    val similar = mat.toRowMatrix().columnSimilarities()
-//    similar.entries.map
-
-    // tranform to pair RDD wich key is item and value is vector of similarities with other item
-    val indexdsimilar = similar.toIndexedRowMatrix()
-      .rows.map{ case IndexedRow(idx, vector) =>
-      (idx.toInt, vector)
-    }
-
 
 
   // sample a user
-    val user2pred = mat.rows.takeSample(true,1)(0)
+    val user2pred = rows.takeSample(true,1)(0)
     println(user2pred.index)
 
     // item list of a sample user
     val prefs: SparseVector =  user2pred.vector.asInstanceOf[SparseVector]
+    //
+    val similar = Similarity(rows)
+    val recommends = RecommendTop(prefs,similar)
+    recommends.foreach(println)
+
+  }
+  def Similarity(rows: RDD[IndexedRow]): RDD[(Int, SparseVector)] ={
+    val mat  = new IndexedRowMatrix(rows)
+
+    //    compute similarity across columns
+    val similar = mat.toRowMatrix().columnSimilarities()
+    //    similar.entries.map
+
+    // tranform to pair RDD wich key is item and value is vector of similarities with other item
+      similar.toIndexedRowMatrix()
+      .rows.map{ case IndexedRow(idx, vector) =>
+      (idx.toInt, vector.asInstanceOf[SparseVector])
+    }
+  }
+  def RecommendTop(userprefs:SparseVector,
+                   similar:RDD[(Int, SparseVector)],
+                   topk:Int =10,nums:Int=10)(implicit sc:SparkContext): Array[(Int,Double)] ={
 
     // key is items , values is preference of items
-    val ipi = (prefs.indices zip prefs.values)
-    val k = 10
+    val ipi =userprefs.indices zip userprefs.values
     // items that user has selected
-    val uitems = prefs.indices
-    //
+    val uitems = userprefs.indices
     val ij = sc.parallelize(ipi)
-      .join(indexdsimilar)
+      .join(similar)
       .flatMap{ case (i, (pi, vector:SparseVector)) =>
-      // item j with Sim(i,j) * Pi
-
-      (vector.indices zip vector.values)
+        (vector.indices zip vector.values)
         // filter item which has been in user's item list
         .filter{ case (item, pref)=> !uitems.contains(item) }
         // sort by Sim(i,j) and then take top k
-        .sortBy{ case (j, sij) => sij}.reverse.take(k)
-        .map{ case (j, sij) => (j, sij * pi) }
-    }
-    val result = ij.reduceByKey(_+_).sortBy(_._2,ascending = false).take(100)
-    result.foreach(println)
+        .sortBy{ case (j, sij) => sij}.reverse.take(topk)
+          // item j with Sim(i,j) * Pi
+          .map{ case (j, sij) => (j, sij * pi) }
+      }
+    // reduce by item j , select top nums Preference
+    val result = ij.reduceByKey(_+_).sortBy(_._2,ascending = false).take(nums)
 
-//    indexdsimilar(102)
-//    similar.entries.foreach{ row =>
-//      println(row.i, row.j)
-//      print(row.j)
-//    }
-//    println(mat.numCols())
-//    println(mat.numRows())
-//    print(similar)
+    result
   }
 }
