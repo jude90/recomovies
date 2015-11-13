@@ -47,6 +47,9 @@ object ItemCF {
     val similar = mat.columnSimilarities()
 //    similar.entries.map
     val indexdsimilar = similar.toIndexedRowMatrix()
+    indexdsimilar.rows.foreach{row =>
+      println(row.index)
+    }
 //    indexdsimilar(102)
 //    similar.entries.foreach{ row =>
 //      println(row.i, row.j)

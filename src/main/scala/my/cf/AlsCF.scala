@@ -26,12 +26,15 @@ object AlsCF {
       }
 
     }
-    val top100 = ratings.map{ case Rating(u,m, r) =>
-        (m,r)
-    }.groupByKey.mapValues{ case  r =>
-      val rates = r.toArray
-        r.reduce(_+_) / rates.length
-    }.sortBy({case (k,v) => v}, ascending = false).take(100)
+
+
+
+//    val top100 = ratings.map{ case Rating(u,m, r) =>
+//        (m,r)
+//    }.groupByKey.mapValues{ case  r =>
+//      val rates = r.toArray
+//        r.reduce(_+_) / rates.length
+//    }.sortBy({case (k,v) => v}, ascending = false).take(100)
 
     val Array(train , test) = ratings.randomSplit(Array(0.7,0.3), 17)
 //    train.take(10)
@@ -42,26 +45,30 @@ object AlsCF {
     val uidmid = test.map{ case Rating(uid, mid,rate)  =>
       (uid, mid)
     }
-    val predictions = model.predict(uidmid).map{  case Rating(uid, mid,pred) =>
-      ((uid, mid), pred)
-    }
+    model.save(sc,"alsmodel")
+//    val predictions = model.predict(uidmid).map{  case Rating(uid, mid,pred) =>
+//      ((uid, mid), pred)
+//    }
 //    val predictions = test.map { case Rating(uid, mid,rate)  =>
 //      val predict = model.predict(uid,mid)
 //      ((uid, mid), predict)
 //    }
-    val withpredicts = test.map{ case Rating(uid, mid,rate) =>
-      ((uid, mid), rate)
+//    val withpredicts = test.map{ case Rating(uid, mid,rate) =>
+//      ((uid, mid), rate)
+//
+//    }.join(predictions)
+//
+//    val RMSE = withpredicts.map{ case ((uid, mid), (rate, predict)) =>
+//        val err = (rate - predict)
+//        sqrt(err * err)
+//    }.mean()
+//
+//    println(s"RMSE is ", RMSE)
+//    println("Top 100 is")
+//    val user2items = ratings.map(rate => (rate.user, (rate.product, rate.rating)))
+//      .groupByKey()
+//    val usersamples = user2items.takeSample(true, 1)
 
-    }.join(predictions)
-
-    val RMSE = withpredicts.map{ case ((uid, mid), (rate, predict)) =>
-        val err = (rate - predict)
-        sqrt(err * err)
-    }.mean()
-
-    println(s"RMSE is ", RMSE)
-    println("Top 100 is")
-    top100.foreach(println)
     sc.stop()
   }
 
