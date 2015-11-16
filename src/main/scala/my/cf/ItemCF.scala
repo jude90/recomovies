@@ -10,7 +10,7 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, RowMatrix, I
 
 object ItemCF {
   val sconf = new SparkConf()
-    .setMaster("local[2]")
+    .setMaster("local[*]")
     .setAppName("item-one")
     .set("spark.executor.memory", "4g")
   implicit val sc =new SparkContext(sconf)
@@ -63,7 +63,7 @@ object ItemCF {
     val mat  = new IndexedRowMatrix(rows)
 
     //    compute similarity across columns
-    val similar = mat.toRowMatrix().columnSimilarities()
+    val similar = mat.toRowMatrix().columnSimilarities(0.001)
     //    similar.entries.map
 
     // tranform to pair RDD wich key is item and value is vector of similarities with other item
@@ -74,14 +74,14 @@ object ItemCF {
   }
   def RecommendTop(userprefs:SparseVector,
                    similar:RDD[(Int, SparseVector)],
-                   topk:Int =10,nums:Int=10)(implicit sc:SparkContext): Array[(Int,Double)] ={
+                   topk:Int =10,nums:Int=100)(implicit sc:SparkContext): Array[(Int,Double)] ={
 
     // key is items , values is preference of items
-    val ipi =userprefs.indices zip userprefs.values
+    val ipi:Array[(Int,Double)] =userprefs.indices zip userprefs.values
     // items that user has selected
-    val uitems = userprefs.indices
-    val ij = sc.parallelize(ipi)
-      .join(similar)
+    val uitems: Array[Int] = userprefs.indices
+    val ij :RDD[(Int,Double)] = sc.parallelize(ipi)
+      .join(similar.filter{case(i, vector)=> uitems.contains(i)})
       .flatMap{ case (i, (pi, vector:SparseVector)) =>
         (vector.indices zip vector.values)
         // filter item which has been in user's item list
@@ -92,7 +92,7 @@ object ItemCF {
           .map{ case (j, sij) => (j, sij * pi) }
       }
     // reduce by item j , select top nums Preference
-    val result = ij.reduceByKey(_+_).sortBy(_._2,ascending = false).take(nums)
+    val result :Array[(Int,Double)] = ij.reduceByKey(_+_).sortBy(_._2,ascending = false).take(nums)
 
     result
   }
