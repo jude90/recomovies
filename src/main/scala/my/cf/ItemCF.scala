@@ -15,7 +15,11 @@ object ItemCF {
     .set("spark.executor.memory", "4g")
   implicit val sc =new SparkContext(sconf)
   def main(args: Array[String]): Unit = {
-
+    val sconf = new SparkConf()
+      .setMaster("local[2]")
+      .setAppName("item-one")
+      .set("spark.executor.memory", "4g")
+    val sc =new SparkContext(sconf)
     val ratings = sc.textFile("data/ratings.dat").map{ line:String =>
       val fields =line.split("::")
       (fields(0).toInt, fields(1).toInt, fields(2).toDouble)
