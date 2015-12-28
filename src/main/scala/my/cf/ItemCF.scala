@@ -119,9 +119,9 @@ object ItemCF {
     test_set.map{ case IndexedRow(index,vector) =>(index, vector.asInstanceOf[SparseVector])}
       .foreach{ case (uid,  vect)=>
         // shuffled  item list before split
-        val shuffled = Random.shuffle(vect.indices zip vect.values).asInstanceOf[Array[(Int,Double)]]
+        val shuffled = Random.shuffle[(Int,Double),IndexedSeq](vect.indices zip vect.values)
         // split a item vector into two exclusive part
-        val (predict_set:Array[(Int,Double)], vali_set:Array[(Int,Double)]) = shuffled.splitAt(vect.indices.length.toInt/2)
+        val (predict_set:IndexedSeq[(Int,Double)], vali_set:IndexedSeq[(Int,Double)]) = shuffled.splitAt(vect.indices.length.toInt/2)
 
 //        reform the predict_set into a SparseVector
         val predicts =Vectors.sparse(predict_set.length, predict_set.toSeq).asInstanceOf[SparseVector]
